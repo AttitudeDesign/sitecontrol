@@ -1,0 +1,8 @@
+name = Site Control
+description = Site control module from OBT
+core = 7.x
+package = "OBT Modules"
+version = "7.x-1.0"
+
+dependencies[] = admin
+

@@ -1,0 +1,226 @@
+<?php
+
+function sitecontrol_menu() {
+  $items['admin/config/development/sitecontrol'] = array(
+    'title' => 'Site Control menu Settings',
+    'description' => 'Settings created for Site Control.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sitecontrol_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'sitecontrol.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+function sitecontrol_block_info() {
+	$blocks['site'] = array(
+		'subject' => t('Site Control'),
+		'info' => 'Site Control (Attitude Design)',
+		'cache' => 'BLOCK_NO_CACHE',
+		'admin' => TRUE
+	);
+	return $blocks;
+}
+
+function returnLink($text,$link = NULL) {
+	global $att_val; if($att_val==0) { $att_val = 1337; }
+	$att_val++;
+	return array(
+	'link' =>
+		array(
+			'href'=>$link,
+			'title'=> $text,
+			'access'=>'view content',
+			'hidden'=>FALSE,
+			'has_children' => FALSE,
+			'in_active_trail' => FALSE,
+			'menu_name' => 'sitecontrol',
+			'mlid' => $att_val
+		),
+		'below' => '',
+	);
+}
+
+function sitecontrol_block_view($delta = 0) {
+	$blocks = array(
+		'subject' => t('Site Control'),
+		'info' => 'Site Control (Attitude Design)',
+		'cache' => 'BLOCK_NO_CACHE',
+		'admin' => TRUE,
+	);
+
+	$dest = array('destination' => $_GET['q']);
+	$menu = array();
+	$spetypes = variable_get('sitecontrol_grouptax',array());
+	if(!isset($spetypes['page']) || $spetypes['page']==0) {
+		$menu[] = returnLink('Add Page','node/add/page');
+	}
+	if(!isset($spetypes['article']) || $spetypes['article']==0) {
+		$menu[] = returnLink('Add Article','node/add/article');
+	}
+	if(count(variable_get('sitecontrol_types',array('page', 'article')))>2) {
+		$types = variable_get('sitecontrol_types',array('page', 'article'));
+		$systypes = _node_types_build()->types;
+		foreach($types as $type) {
+			if(!isset($spetypes[$type]) || $spetypes[$type]==0) {
+				if($type!='page' && $type!='webform' && $type!='image' && $type!='0') {
+					if(user_access('create '.$type.' content')) {
+						//$menu[] = returnLink(t('Add '.$systypes[$type]->name), 'node/add/'.$type);
+						$menu[] = returnLink(t('Add '.$systypes[$type]->name), 'node/add/'.str_replace('_','-',$type));
+					}
+				}
+			}
+		}
+	}
+	$menu[] = returnLink(t('---'),NULL);
+	$menu[] = returnLink(t('Edit/View All Content'),'admin/content/node');
+	$menu[] = returnLink(t('Comment Approval'), 'admin/content/comment/approval');
+	if(variable_get('sitecontrol_blogcat',0)!=0) {
+		$volcab = variable_get('sitecontrol_blogcat',0);
+		$menu[] = returnLink(t('---'),NULL);
+		$spetypes = variable_get('sitecontrol_grouptax',array());
+		$systypes = _node_types_build()->types;
+		foreach($spetypes as $spetype => $volsel) {
+
+			if($volsel==$volcab) {
+				$menu[] = returnLink(t('Add '.$systypes[$spetype]->name), 'node/add/'.$spetype);
+			}
+		}
+		$vol = taxonomy_vocabulary_load($volcab);
+		$menu[] = returnLink(t('Add Blog Category'), 'admin/structure/taxonomy/'.$vol->machine_name.'/add');
+		$menu[] = returnLink(t('Edit/Delete Blog Categories'), 'admin/structure/taxonomy/'.$vol->machine_name);
+	}
+	$menu[] = returnLink(t('---'),NULL);
+	$menu[] = returnLink(t('Customise Menu Order'), 'admin/structure/menu/manage/main-menu');
+	$menu[] = returnLink(t('---'),NULL);
+	$sidevol = variable_get('sitecontrol_sidecats',array());
+	if(!empty($sidevol)) {
+		$x = 0;
+		foreach($sidevol as $vol) {
+			if($vol!=variable_get('sitecontrol_blogcat',0) && $vol!=0) {
+				$volc = taxonomy_vocabulary_load($vol);
+				$name = explode(" ",$volc->name);
+				$vid = $volc->vid;
+				if(isset($sepin) && $sepin!='done') { $menu[] = returnLink(t('---'),NULL); $sepin = 'done'; }
+				$spetypes = variable_get('sitecontrol_grouptax',array());
+				$systypes = _node_types_build()->types;
+				foreach($spetypes as $spetype => $volsel) {
+					if($volsel==$vid) {
+						$menu[] = returnLink(t('Add '.$systypes[$spetype]->name), 'node/add/'.str_replace('_','-',$spetype));
+					}
+				}
+				$menu[] = returnLink(t('Add '.$volc->name.' Category'), 'admin/structure/taxonomy/'.$volc->machine_name.'/add');
+				$menu[] = returnLink(t('Edit/Delete '.$volc->name.' Categories'), 'admin/structure/taxonomy/'.$volc->machine_name);
+			}
+			if($x!=(count($sidevol)-1)) {$x++; $menu[] = returnLink(t('---'),NULL); }
+		}
+		if($x==0) {
+			$menu[] = returnLink(t('---'),NULL);
+		}
+	}
+	$menu[] = returnLink(t('Add User'), 'admin/people/create');
+	$menu[] = returnLink(t('Edit/Delete Users'), 'admin/people');
+	if (module_exists('sitewide')) {
+		$menu[] = returnLink(t('---'),NULL);	
+		$menu[] = returnLink(t('Sitewide Settings'),'admin/config/development/sitewidesettings');
+	}
+	$extralinks = variable_get('sitecontrol_extralinks',array());
+	$outMet = array();
+	if(count($extralinks)>0) {
+		foreach($extralinks as $newlink) {
+			if(!empty($newlink['title'])) {
+				$outMet[] = returnLink(t($newlink['title']), $newlink['url']);
+			}
+		}
+	}
+	if(count($outMet)>0) {
+		$menu[] = returnLink(t('---'),NULL);
+		foreach($outMet as $newlink) { $menu[] = $newlink; }
+	}
+	$menu[] = returnLink(t('---'),NULL);
+	$menu[] = returnLink(t('Logout'), 'user/logout');
+	if($GLOBALS['user']->uid==1) {
+		$menu[] = returnLink(t('---'),NULL);
+		$menu[] = returnLink(t('Run Cron'), 'admin/reports/status/run-cron');
+		$menu[] = returnLink(t('Clear Cache'), 'cache.php');
+		$menu[] = returnLink(t('Edit Site Control'), 'admin/config/development/sitecontrol');
+		if (module_exists('sitewide')) {
+			$menu[] = returnLink(t('Edit Sitewide Settings'), 'admin/config/development/sitewide');
+		}
+	}
+
+	return array(
+		'subject' => ('Site Control'),
+		'content' => menu_tree_output($menu),
+	);
+	return $blocks;
+}
+
+// ==============================
+//	Implementation of hook_cron()
+// ==============================
+function sitecontrol_cron() {
+	$q = db_query("SELECT data, id FROM field_config_instance WHERE field_name != 'body' AND field_name != 'comment_body'");
+	if($q->rowCount()) {
+		$run = FALSE;
+		foreach($q as $row) {
+			$data = unserialize($row->data);
+			if(isset($data['display']['default']) && $data['display']['default']['type']!='hidden') {
+				$data['display']['default']['type'] = 'hidden';
+				$data['display']['default']['label'] = 'hidden';
+				$dataOut = serialize($data);
+				db_query("UPDATE field_config_instance SET data = :data WHERE id = :id",array(':data'=>$dataOut,':id'=>$row->id));
+				$run = TRUE;
+			}
+		}
+		if($run) {
+			db_query("DELETE FROM cache_field WHERE cid IN ('field_info:fields')");
+			db_query("DELETE FROM cache_field WHERE cid IN ('field_info:instances')");
+			db_query("DELETE FROM cache_field WHERE cid LIKE 'field_info:bundle%'");
+		}
+	}
+}
+
+
+function sitecontrol_form_alter(&$form, $form_state, $form_id) {
+	if ($form['#id'] == 'node-form') {
+		$types = node_get_types('names');
+		foreach($types as $type => $nicename ) { $skel_types[$type] = array(); }
+		$curfields = variable_get('sitecontrol_fieldsets',$skel_types);
+		$formtype = $form['type']['#value'];
+		foreach($form as $formem => $data) {
+			if(is_array($data) && $data['#type']=='fieldset') {
+				if(empty($data['#attributes']['class'])) {
+					$form[$formem]['#attributes']['class'] = 'sitecontrol-'.str_replace('_','-',$formem);
+				}
+				else {
+					$form[$formem]['#attributes']['class'] .= ' sitecontrol-'.str_replace('_','-',$formem);
+				}
+				if(!is_array($curfields[$formtype])) { $curfields[$formtype] = array(); }
+				if(!in_array($formem,$curfields[$formtype])) {
+					array_push($curfields[$formtype],$formem);
+				}
+			}
+		}
+		variable_set('sitecontrol_fieldsets',$curfields);
+		$hidden = variable_get('sitecontrol_hide_'.$formtype,array());
+		foreach($hidden as $hide => $active) {
+			if($hide===$active) {
+				drupal_add_js('
+				jQuery(document).ready(function(){
+					jQuery(".sitecontrol-'.str_replace('_','-',$active).'").hide();
+				});', 'inline');
+			}
+		}
+		drupal_add_js('
+			jQuery(document).ready(function() {
+				jQuery(".form-item-promote").hide();
+				jQuery(".form-item-sticky").hide();
+			});','inline');
+	}
+	if($form_id=='taxonomy_form_term'){ drupal_add_js('jQuery(document).ready(function() { jQuery("#edit-path").hide(); });','inline'); }
+}
+
+?>
